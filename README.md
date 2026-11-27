@@ -1,126 +1,89 @@
-# Inventory Management System (IMS) - Backend
+# Car sales and brokerage platform
 
-Modular FastAPI backend for the Inventory Management System described in the project
-proposal and SRS. This repository is the foundation plus the **first module, Catalog**
-(products and categories, SRS FR-02).
+A car sales and brokerage platform built on [Saleor](https://saleor.io) 3.23, the open-source
+(BSD-3) headless commerce platform.
 
-Stack, as recommended in the proposal: Python, FastAPI, SQLAlchemy 2, PostgreSQL,
-Alembic migrations, Pytest, Docker.
+- **Saleor** (Python/Django, GraphQL) runs the catalog, customers, checkout, orders and the
+  staff dashboard.
+- **`apps/brokerage`** is a Saleor App (Next.js, `@saleor/app-sdk`) that adds what a
+  brokerage needs: vehicle listings with VINs and a sales workflow, buyer inquiries routed to
+  brokers, and deals with commission and seller payouts. It plugs into the Saleor dashboard
+  as menu pages and a product page widget.
+- **Storefront**: the official Saleor storefront, see [docs/storefront.md](docs/storefront.md).
 
-## What is included
+See [docs/architecture.md](docs/architecture.md) for how vehicles, inquiries and deals map
+onto Saleor.
 
-**Core foundation (`app/core`)**, shared by every module:
+## What it does
 
-- Settings from environment variables (`IMS_*`), see `.env.example`
-- Database engine, per-request session, and a declarative `Base` with stable constraint names
-- Domain error types (`NotFoundError`, `ConflictError`, `ValidationFailedError`) mapped to
-  consistent JSON error responses
-- Pagination helpers and a `Module` contract used to plug feature modules into the app
-
-**Catalog module (`app/modules/catalog`)**
-
-| Requirement | How it is covered |
+| Area | Features |
 |---|---|
-| FR-02 create, view, edit, search, deactivate products | REST endpoints below |
-| FR-02 / Business rule 1 unique SKU (AT-01) | Service check plus a database unique constraint; SKUs are normalised to upper case so `abc-1` and `ABC-1` collide |
-| FR-02 product fields | SKU, barcode, name, description, category, unit of measure, cost price, selling price, reorder level |
-| FR-02 retain history on deactivation | Products are deactivated, never deleted; the SKU stays reserved |
-| Data integrity notes (SRS 7.2) | Money stored as `NUMERIC(12,2)`, check constraints for non-negative prices and reorder levels |
+| Vehicles | Saleor product type with make, model, year, mileage, body, fuel, transmission, colour and condition attributes; VIN as the unique SKU; asking price per channel; private minimum price; dealer stock or consignment with a seller; assigned broker; draft, listed, reserved, withdrawn and sold workflow that publishes and hides the product in Saleor |
+| Inquiries | Questions, test drive requests and offers from the storefront; routing to the vehicle's broker or the least busy broker; offers below the minimum flagged; accepting an offer reserves the vehicle |
+| Deals | Closed automatically when a Saleor order is fully paid, or manually; commission rate snapshot; seller payout for consignments; commission paid tracking; per-broker totals |
+| Brokers | Default commission rates, activation |
 
-Endpoints (interactive docs at `/docs` once running):
+## Run it locally
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/health` | Liveness and installed modules |
-| GET, POST | `/api/categories` | List (filter `is_active`) / create |
-| GET, PATCH | `/api/categories/{id}` | Read / update (including deactivate via `is_active`) |
-| GET | `/api/products` | List with `q` (name, SKU, barcode), `category_id`, `is_active`, `limit`, `offset` |
-| POST | `/api/products` | Create |
-| GET | `/api/products/{id}` | Read |
-| GET | `/api/products/by-sku/{sku}` | Look up by SKU |
-| PATCH | `/api/products/{id}` | Partial update (SKU is immutable) |
-| POST | `/api/products/{id}/deactivate` and `/activate` | Change status |
-
-Not yet included: authentication and role permissions. Endpoints are currently open; the
-auth module is next on the roadmap and will add the permission checks the SRS requires.
-
-## Project layout
-
-```
-app/
-  main.py                 # create_app(): mounts every installed module
-  core/                   # config, database, errors, pagination, module contract
-  modules/
-    __init__.py           # INSTALLED_MODULES registry
-    catalog/
-      models.py           # SQLAlchemy tables
-      schemas.py          # Pydantic request/response models and validation
-      repository.py       # queries
-      service.py          # business rules
-      router.py           # HTTP layer (thin)
-migrations/               # Alembic, one revision per schema change
-tests/                    # pytest, mirrors app/modules
-docs/architecture.md      # module conventions and roadmap
-```
-
-## Getting started
-
-### Option A: Docker (API and PostgreSQL)
+Requirements: Docker, Node.js 22 and pnpm 10.
 
 ```bash
-docker compose up --build
-# API on http://localhost:8000, docs on http://localhost:8000/docs
+# 1. Saleor API, worker, dashboard, Postgres, Valkey, Mailpit
+docker compose up -d
+docker compose run --rm api python3 manage.py migrate
+docker compose run --rm api python3 manage.py createsuperuser
+
+# 2. Brokerage app
+cd apps/brokerage
+cp .env.example .env            # set SALEOR_STAFF_PASSWORD to the superuser's password
+pnpm install
+pnpm provision                  # creates the Vehicle product type, attributes, category, warehouse
+pnpm dev                        # http://localhost:3000
 ```
 
-Migrations run automatically when the API container starts.
+3. Open the dashboard at http://localhost:9000, sign in, open **Apps**, choose to install an
+   app from a manifest URL and enter `http://host.docker.internal:3000/api/manifest` (the URL Saleor's container uses
+   to reach the app). Grant the requested permissions.
 
-### Option B: Local Python
+4. Optional: load demo data (two brokers, a consigning customer, eight vehicles with photos
+   from Wikimedia Commons, and a few inquiries). Safe to re-run.
 
-Requires Python 3.11+ and a PostgreSQL database.
+   ```bash
+   pnpm seed:demo                          # photos from Wikimedia Commons
+   pnpm seed:demo --images-dir=./pics      # or your own files named <VIN>.jpg/.png/.webp
+   ```
+
+You will then find **Vehicles** under Catalog, **Inquiries** under Customers, **Deals and
+commissions** under Orders, and a **Vehicle listing** widget on vehicle product pages.
+
+Emails Saleor sends are visible in Mailpit at http://localhost:8025.
+
+If installation fails, check that `SALEOR_API_URL` in `.env` is exactly the API URL the
+dashboard uses (`http://localhost:8000/graphql/` by default): the app only accepts
+installation from that Saleor instance.
+
+## Develop the app
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-cp .env.example .env               # set IMS_DATABASE_URL
-docker compose up -d db            # or use your own PostgreSQL
-alembic upgrade head
-uvicorn app.main:app --reload
+cd apps/brokerage
+pnpm test           # domain and service tests (SQL runs on in-memory Postgres)
+pnpm check-types
+pnpm lint
+pnpm format
 ```
 
-## Tests and checks
+New database changes go in `src/db/migrations/NNN_name.sql`; they apply automatically on the
+app's first database use, or with `pnpm migrate`.
 
-```bash
-pytest                              # in-memory SQLite, needs nothing installed
-IMS_TEST_DATABASE_URL=postgresql+psycopg://ims:ims@localhost:5432/ims_test pytest
-ruff check . && ruff format --check .
-alembic check                       # fails if models and migrations drift apart
-```
+## Deploy
 
-Use a disposable database for `IMS_TEST_DATABASE_URL`; the suite drops and recreates
-tables. GitHub Actions (`.github/workflows/ci.yml`) runs lint, both test passes and the
-migration check on every push and pull request.
+- Saleor: follow Saleor's [deployment guide](https://docs.saleor.io/setup/deployment) or use
+  Saleor Cloud. Keep `HTTP_IP_FILTER_ENABLED` on in production.
+- Brokerage app: `apps/brokerage/Dockerfile` builds a production image. It needs
+  `BROKERAGE_DATABASE_URL`, `SALEOR_API_URL`, `APP_API_BASE_URL`, `APP_IFRAME_BASE_URL`,
+  `STOREFRONT_ORIGIN` and a persistent path for `APL_FILE_PATH` (the install token).
 
-## Adding the next module
+## History
 
-See [docs/architecture.md](docs/architecture.md). In short: create
-`app/modules/<name>/` with the same five files, expose a `module = Module(...)` in its
-`__init__.py`, add it to `INSTALLED_MODULES`, then run
-`alembic revision --autogenerate -m "<name>"` and review the generated migration.
-
-## Pushing to your GitHub
-
-1. Create an empty repository on GitHub (no README, .gitignore or license, so the first
-   push does not conflict). For example `ims-backend`.
-2. From this folder:
-
-```bash
-git init -b main
-git add .
-git commit -m "Foundation and catalog module"
-git remote add origin https://github.com/<your-username>/ims-backend.git
-git push -u origin main
-```
-
-If you use SSH, the remote is `git@github.com:<your-username>/ims-backend.git`. After the
-push, the CI workflow runs automatically under the repository's Actions tab.
+This repository started as a FastAPI inventory backend. That code is preserved on the
+`fastapi-legacy` branch.

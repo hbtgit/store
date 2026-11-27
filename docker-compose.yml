@@ -1,29 +1,80 @@
-services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: ims
-      POSTGRES_PASSWORD: ims
-      POSTGRES_DB: ims
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ims -d ims"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+# Local development stack: Saleor 3.23 (API, worker, dashboard) plus Postgres,
+# Valkey and Mailpit. The brokerage app runs on the host with `pnpm dev`
+# (see README), which is how Saleor recommends developing apps locally.
+# Based on github.com/saleor/saleor-platform.
 
+x-saleor-env: &saleor-env
+  DATABASE_URL: postgres://saleor:saleor@db/saleor
+  CACHE_URL: redis://cache:6379/0
+  CELERY_BROKER_URL: redis://cache:6379/1
+  DEFAULT_CHANNEL_SLUG: default-channel
+  DEFAULT_FROM_EMAIL: noreply@example.com
+  EMAIL_URL: smtp://mailpit:1025
+  SECRET_KEY: ${SALEOR_SECRET_KEY:-change-me-in-production}
+  DASHBOARD_URL: http://localhost:9000/
+  ALLOWED_HOSTS: localhost,127.0.0.1,api
+  # Lets Saleor call the app on host.docker.internal (a private address).
+  # Keep the filter enabled in production.
+  HTTP_IP_FILTER_ENABLED: "False"
+  HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS: "True"
+
+services:
   api:
-    build: .
-    environment:
-      IMS_DATABASE_URL: postgresql+psycopg://ims:ims@db:5432/ims
+    image: ghcr.io/saleor/saleor:3.23
     ports:
-      - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
+      - 8000:8000
+    restart: unless-stopped
+    depends_on: [db, cache]
+    environment: *saleor-env
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - saleor-media:/app/media
+
+  worker:
+    image: ghcr.io/saleor/saleor:3.23
+    command: celery -A saleor --app=saleor.celeryconf:app worker --loglevel=info -B
+    restart: unless-stopped
+    depends_on: [cache, mailpit]
+    environment: *saleor-env
+    # Webhooks to the brokerage app are delivered from the worker.
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - saleor-media:/app/media
+
+  dashboard:
+    image: ghcr.io/saleor/saleor-dashboard:3.23
+    ports:
+      - 9000:80
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - 5432:5432
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: saleor
+      POSTGRES_PASSWORD: saleor
+    volumes:
+      - saleor-db:/var/lib/postgresql/data
+      # Creates the brokerage app's own database on first start.
+      - ./infra/postgres/init-brokerage.sql:/docker-entrypoint-initdb.d/init-brokerage.sql:ro
+
+  cache:
+    image: valkey/valkey:8.1-alpine
+    restart: unless-stopped
+    volumes:
+      - saleor-cache:/data
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - 8025:8025 # web UI for emails Saleor sends
+    restart: unless-stopped
 
 volumes:
-  pgdata:
+  saleor-db:
+  saleor-cache:
+  saleor-media:
