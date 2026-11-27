@@ -1,4 +1,4 @@
-import { Box, Chip, Text } from "@saleor/macaw-ui";
+import { Box, Text } from "@saleor/macaw-ui";
 import { NextPage } from "next";
 import { useState } from "react";
 
@@ -60,12 +60,12 @@ const InquiriesPage: NextPage = () => {
           </Box>,
           <Box key="details" display="flex" flexDirection="column" gap={1}>
             {i.offerCents != null && (
-              <Box display="flex" gap={2} alignItems="center">
+              <Box display="flex" flexDirection="column">
                 <Text size={3}>Offer {formatMoney(i.offerCents)}</Text>
                 {i.belowMinimum && (
-                  <Chip size="small" backgroundColor="critical1">
-                    <Text size={1}>below minimum</Text>
-                  </Chip>
+                  <Text size={2} color="critical1" fontWeight="bold">
+                    Below the seller&apos;s minimum
+                  </Text>
                 )}
               </Box>
             )}

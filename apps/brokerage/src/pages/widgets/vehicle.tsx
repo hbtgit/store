@@ -1,8 +1,8 @@
-import { useAppBridge } from "@saleor/app-sdk/app-bridge";
+import { useAppBridge, useWidgetAutoResize } from "@saleor/app-sdk/app-bridge";
 import { Box, Button, Input, Text } from "@saleor/macaw-ui";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { StatusActions } from "@/components/StatusActions";
 import { ErrorText, formatMoney, humanize, parseMoney, SelectField } from "@/components/ui";
@@ -12,6 +12,17 @@ import { allowedTransitions, ListingStatus, SUPPLY_TYPES } from "@/modules/vehic
 
 /** Product page widget: brokerage fields and status for a Vehicle product. */
 const VehicleWidget: NextPage = () => {
+  // The dashboard sizes widget iframes from the height the widget reports.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useWidgetAutoResize(rootRef);
+  return (
+    <div ref={rootRef}>
+      <VehicleWidgetContent />
+    </div>
+  );
+};
+
+function VehicleWidgetContent() {
   const { appBridgeState } = useAppBridge();
   const router = useRouter();
   const productId = typeof router.query.productId === "string" ? router.query.productId : null;
@@ -119,6 +130,6 @@ const VehicleWidget: NextPage = () => {
       </Button>
     </Box>
   );
-};
+}
 
 export default VehicleWidget;
