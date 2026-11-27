@@ -6,39 +6,24 @@ on:
   pull_request:
 
 jobs:
-  test:
+  brokerage-app:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: ims
-          POSTGRES_PASSWORD: ims
-          POSTGRES_DB: ims_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ims -d ims_test"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
+    defaults:
+      run:
+        working-directory: apps/brokerage
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: pnpm/action-setup@v4
         with:
-          python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: ruff check .
-      - run: ruff format --check .
-      - name: Tests (SQLite)
-        run: pytest
-      - name: Tests (PostgreSQL)
-        run: pytest
-        env:
-          IMS_TEST_DATABASE_URL: postgresql+psycopg://ims:ims@localhost:5432/ims_test
-      - name: Migrations apply cleanly and match the models
-        env:
-          IMS_DATABASE_URL: postgresql+psycopg://ims:ims@localhost:5432/ims_test
-        run: |
-          alembic upgrade head
-          alembic check
+          version: 10.28.1 # matches packageManager in apps/brokerage/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/brokerage/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm check-types
+      - run: pnpm test
+      - run: pnpm build

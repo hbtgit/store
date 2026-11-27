@@ -1,0 +1,61 @@
+{
+  "name": "car-brokerage-app",
+  "version": "0.1.0",
+  "private": true,
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx src",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "provision": "tsx --env-file-if-exists=.env scripts/provision-saleor.ts",
+    "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"scripts/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"scripts/**/*.ts\""
+  },
+  "engines": {
+    "npm": ">=10.0.0 <11.0.0",
+    "node": ">=22.0.0 <23.0.0",
+    "pnpm": ">=10.0.0 <11.0.0"
+  },
+  "dependencies": {
+    "@saleor/app-sdk": "1.12.0",
+    "@saleor/macaw-ui": "2.0.0",
+    "@urql/exchange-auth": "^1.0.0",
+    "next": "16.4.5",
+    "pg": "8.23.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "urql": "^4.0.2",
+    "zod": "4.6.7"
+  },
+  "packageManager": "pnpm@10.28.1",
+  "devDependencies": {
+    "@saleor/eslint-plugin-saleor-app": "^0.1.2",
+    "@types/node": "^18.11.18",
+    "@types/pg": "8.23.1",
+    "@types/react": "^18.2.6",
+    "@types/react-dom": "^18.2.4",
+    "@vitejs/plugin-react": "4.2.1",
+    "eslint": "8.31.0",
+    "eslint-config-next": "13.1.2",
+    "eslint-config-prettier": "^8.6.0",
+    "eslint-plugin-simple-import-sort": "12.1.1",
+    "graphql": "^16.8.1",
+    "jsdom": "^20.0.3",
+    "pg-mem": "3.0.14",
+    "prettier": "^2.8.2",
+    "tsx": "4.20.3",
+    "typescript": "5.9.3",
+    "vite": "5.2.10",
+    "vite-tsconfig-paths": "5.1.4",
+    "vitest": "1.5.2"
+  },
+  "lint-staged": {
+    "*.{js,ts,tsx}": "eslint --cache --fix",
+    "*.{js,ts,tsx,css,md,json}": "prettier --write"
+  }
+}
