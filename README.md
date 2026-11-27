@@ -45,6 +45,14 @@ pnpm dev                        # http://localhost:3000
    app from a manifest URL and enter `http://host.docker.internal:3000/api/manifest` (the URL Saleor's container uses
    to reach the app). Grant the requested permissions.
 
+4. Optional: load demo data (two brokers, a consigning customer, eight vehicles with photos
+   from Wikimedia Commons, and a few inquiries). Safe to re-run.
+
+   ```bash
+   pnpm seed:demo                          # photos from Wikimedia Commons
+   pnpm seed:demo --images-dir=./pics      # or your own files named <VIN>.jpg/.png/.webp
+   ```
+
 You will then find **Vehicles** under Catalog, **Inquiries** under Customers, **Deals and
 commissions** under Orders, and a **Vehicle listing** widget on vehicle product pages.
 

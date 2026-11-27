@@ -14,7 +14,8 @@
     "provision": "tsx --env-file-if-exists=.env scripts/provision-saleor.ts",
     "migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"scripts/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"scripts/**/*.ts\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"scripts/**/*.ts\"",
+    "seed:demo": "tsx --env-file-if-exists=.env scripts/seed-demo.ts"
   },
   "engines": {
     "npm": ">=10.0.0 <11.0.0",

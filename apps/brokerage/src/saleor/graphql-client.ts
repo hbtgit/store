@@ -43,3 +43,39 @@ function assertNoMutationErrors(data: unknown) {
     }
   }
 }
+
+/**
+ * Uploads a product image using the GraphQL multipart request spec, which
+ * Saleor supports for `Upload` arguments.
+ */
+export async function uploadProductImage(
+  apiUrl: string,
+  token: string,
+  input: { productId: string; image: Blob; fileName: string; alt: string }
+): Promise<void> {
+  const form = new FormData();
+  form.append(
+    "operations",
+    JSON.stringify({
+      query: `mutation($product: ID!, $image: Upload!, $alt: String) {
+        productMediaCreate(input: { product: $product, image: $image, alt: $alt }) {
+          errors { field message code }
+        }
+      }`,
+      variables: { product: input.productId, image: null, alt: input.alt },
+    })
+  );
+  form.append("map", JSON.stringify({ "0": ["variables.image"] }));
+  form.append("0", input.image, input.fileName);
+
+  const res = await fetch(apiUrl, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) throw new SaleorError(`Image upload failed with HTTP ${res.status}`);
+  const body = (await res.json()) as { data?: any; errors?: { message: string }[] };
+  const errors = body.errors ?? body.data?.productMediaCreate?.errors ?? [];
+  if (errors.length)
+    throw new SaleorError(`Image upload failed: ${JSON.stringify(errors)}`, errors);
+}
