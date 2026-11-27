@@ -77,5 +77,5 @@ app's first database use, or with `pnpm migrate`.
 
 ## History
 
-This repository started as a FastAPI inventory backend. That code is preserved at the
-`fastapi-legacy` tag.
+This repository started as a FastAPI inventory backend. That code is preserved on the
+`fastapi-legacy` branch.
